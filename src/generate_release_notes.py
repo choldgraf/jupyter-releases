@@ -35,21 +35,21 @@ def format_date(date_str):
 
 def load_organizations(yaml_file):
     """Load organizations from YAML file"""
-    with open(yaml_file, 'r') as f:
+    with open(yaml_file, "r") as f:
         data = yaml.safe_load(f)
-    return data.get('organizations', [])
+    return data.get("organizations", [])
 
 
 def get_org_name_from_url(url):
     """Extract organization name from GitHub URL"""
-    return url.split('/')[-1]
+    return url.split("/")[-1]
 
 
 def fetch_repositories(org_url):
     """Fetch all repositories for an organization"""
     org_name = get_org_name_from_url(org_url)
     print(f"Fetching all repositories from {org_name} organization...")
-    
+
     try:
         result = subprocess.run(
             ["gh", "api", f"orgs/{org_name}/repos", "--paginate"],
@@ -68,17 +68,16 @@ def fetch_releases_from_last_six_months(org_url, repo_name):
     """Fetch releases from the last 6 months for a specific repository"""
     org_name = get_org_name_from_url(org_url)
     six_months_ago = datetime.now() - timedelta(days=180)
-    
+
     try:
         result = subprocess.run(
-            ["gh", "api", f"repos/{org_name}/{repo_name}/releases", 
-             "--paginate"],
+            ["gh", "api", f"repos/{org_name}/{repo_name}/releases", "--paginate"],
             capture_output=True,
             text=True,
             check=True,
         )
         releases = json.loads(result.stdout)
-        
+
         # Filter releases from the last 6 months
         recent_releases = []
         for release in releases:
@@ -89,7 +88,7 @@ def fetch_releases_from_last_six_months(org_url, repo_name):
                 if release_date >= six_months_ago:
                     release["repo_name"] = repo_name
                     recent_releases.append(release)
-        
+
         return recent_releases
     except subprocess.CalledProcessError:
         print(f"No releases found for {org_name}/{repo_name}")
@@ -102,7 +101,7 @@ def fetch_releases_from_last_six_months(org_url, repo_name):
 def create_index_md(org_folder, org_name, releases):
     """Create index.md file for an organization"""
     index_file = org_folder / "index.md"
-    
+
     with open(index_file, "w") as f:
         f.write("---\n")
         f.write(f"title: {org_name} Releases\n")
@@ -113,9 +112,11 @@ def create_index_md(org_folder, org_name, releases):
         f.write(f"  - {org_name.lower().replace(' ', '-')}\n")
         f.write("---\n\n")
         f.write(f"# {org_name} Releases\n\n")
-        f.write(f"This page contains all releases from the {org_name} "
-                f"organization in the last year.\n\n")
-        
+        f.write(
+            f"This page contains all releases from the {org_name} "
+            f"organization in the last year.\n\n"
+        )
+
         folder_name = org_name.lower().replace(" ", "-").replace("&", "and")
         f.write(":::{blog-posts}\n")
         f.write(f":path: releases/{folder_name}/\n")
@@ -157,30 +158,30 @@ def main():
     for org in organizations:
         org_name = org["name"]
         org_url = org["url"]
-        
+
         print(f"\nProcessing {org_name}...")
-        
+
         # Fetch repositories for this organization
         repos = fetch_repositories(org_url)
         if not repos:
             print(f"No repositories found for {org_name}")
             continue
-        
+
         # Fetch releases from the last 6 months for each repository
         for repo in repos:
             repo_name = repo["name"]
             print(f"  Fetching releases from {repo_name}...")
-            
+
             releases = fetch_releases_from_last_six_months(org_url, repo_name)
             for release in releases:
                 release["org_name"] = org_name
             all_releases.extend(releases)
-    
+
     # Sort all releases by publication date (oldest first)
     all_releases.sort(key=lambda x: x["published_at"])
-    
+
     print(f"\nFound {len(all_releases)} total releases from the last 6 months")
-    
+
     # Second pass: generate files in chronological order
     for release_counter, release in enumerate(all_releases, 1):
         title = release["name"] or release["tag_name"]
@@ -201,28 +202,29 @@ def main():
         date = release["published_at"][:10]
         body = release["body"] or ""
 
-        # Wrap @mentions in backticks (only if preceded by space, (, comma, 
+        # Wrap @mentions in backticks (only if preceded by space, (, comma,
         # or [, and not already wrapped)
         body = re.sub(r"(?<=[\s(,\[])@(\w+)(?!`)", r"`@\1`", body)
 
         # Create filename
         safe_title = re.sub(r"[^a-zA-Z0-9-]", "-", title.lower())
         org_folder_name = org_name.lower().replace(" ", "-").replace("&", "and")
-        filename = releases_dir / f"{release_counter:03d}-{org_folder_name}-{repo_name}-{safe_title}.md"
+        filename = (
+            releases_dir
+            / f"{release_counter:03d}-{org_folder_name}-{repo_name}-{safe_title}.md"
+        )
 
         # Write the markdown file
         with open(filename, "w") as f:
             f.write("---\n")
             f.write(f"title: {title}\n")
             f.write(f'date: "{date}"\n')
-            f.write("author: The Jupyter Team\n")
+            f.write(f"author: {org_name}\n")
             f.write("tags:\n")
             f.write("  - release\n")
             f.write(f"  - {org_name.lower().replace(' ', '-')}\n")
             f.write("---\n\n")
-            f.write(
-                f"{{button}}`Release Source <{release['html_url']}>`\n\n"
-            )
+            f.write(f"{{button}}`Release Source <{release['html_url']}>`\n\n")
             f.write(body)
             f.write("\n")
 
