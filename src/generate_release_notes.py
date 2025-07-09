@@ -64,10 +64,10 @@ def fetch_repositories(org_url):
         return []
 
 
-def fetch_releases_from_last_year(org_url, repo_name):
-    """Fetch releases from the last year for a specific repository"""
+def fetch_releases_from_last_six_months(org_url, repo_name):
+    """Fetch releases from the last 6 months for a specific repository"""
     org_name = get_org_name_from_url(org_url)
-    one_year_ago = datetime.now() - timedelta(days=365)
+    six_months_ago = datetime.now() - timedelta(days=180)
     
     try:
         result = subprocess.run(
@@ -79,14 +79,14 @@ def fetch_releases_from_last_year(org_url, repo_name):
         )
         releases = json.loads(result.stdout)
         
-        # Filter releases from the last year
+        # Filter releases from the last 6 months
         recent_releases = []
         for release in releases:
             if release.get("published_at"):
                 release_date = datetime.strptime(
                     release["published_at"][:10], "%Y-%m-%d"
                 )
-                if release_date >= one_year_ago:
+                if release_date >= six_months_ago:
                     release["repo_name"] = repo_name
                     recent_releases.append(release)
         
@@ -151,15 +151,11 @@ def main():
 
     print(f"Processing {len(organizations)} organizations...")
 
+    release_counter = 1
+
     for org in organizations:
         org_name = org["name"]
         org_url = org["url"]
-        
-        # Create organization folder
-        org_folder = releases_dir / org_name.lower().replace(" ", "-").replace(
-            "&", "and"
-        )
-        org_folder.mkdir(parents=True, exist_ok=True)
         
         print(f"\nProcessing {org_name}...")
         
@@ -169,24 +165,23 @@ def main():
             print(f"No repositories found for {org_name}")
             continue
         
-        all_releases = []
+        org_releases = []
         
-        # Fetch releases from the last year for each repository
+        # Fetch releases from the last 6 months for each repository
         for repo in repos:
             repo_name = repo["name"]
             print(f"  Fetching releases from {repo_name}...")
             
-            releases = fetch_releases_from_last_year(org_url, repo_name)
-            all_releases.extend(releases)
+            releases = fetch_releases_from_last_six_months(org_url, repo_name)
+            org_releases.extend(releases)
         
         # Sort releases by publication date (newest first)
-        all_releases.sort(key=lambda x: x["published_at"], reverse=True)
+        org_releases.sort(key=lambda x: x["published_at"])
         
-        print(f"  Found {len(all_releases)} releases from the last year")
+        print(f"  Found {len(org_releases)} releases from the last 6 months")
         
         # Generate release files for this organization
-        for ii, release in enumerate(all_releases):
-            number = ii + 1
+        for release in org_releases:
             title = release["name"] or release["tag_name"]
             repo_name = release["repo_name"]
 
@@ -212,7 +207,8 @@ def main():
 
             # Create filename
             safe_title = re.sub(r"[^a-zA-Z0-9-]", "-", title.lower())
-            filename = org_folder / f"{number:03d}-{repo_name}-{safe_title}.md"
+            org_folder_name = org_name.lower().replace(" ", "-").replace("&", "and")
+            filename = releases_dir / f"{release_counter:03d}-{org_folder_name}-{repo_name}-{safe_title}.md"
 
             # Write the markdown file
             with open(filename, "w") as f:
@@ -231,10 +227,7 @@ def main():
                 f.write("\n")
 
             print(f"    Generated: {filename}")
-        
-        # Create index.md for this organization
-        create_index_md(org_folder, org_name, all_releases)
-        print(f"    Created index: {org_folder}/index.md")
+            release_counter += 1
 
     print("\nRelease posts generated successfully!")
 

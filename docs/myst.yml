@@ -14,45 +14,9 @@ project:
   toc:
     - file: index.md
     # Jupyter organization releases
-    - title: "Jupyter"
+    - title: Releases
       children:
-      - pattern: "releases/jupyter/*.md"
-        exclude: ["index.md"]
-    
-    # Jupyter Lab organization releases
-    - title: "Jupyter Lab"
-      children:
-      - pattern: "releases/jupyter-lab/*.md"
-    
-    # JupyterHub and Binder organization releases
-    - title: "JupyterHub and Binder"
-      children:
-      - pattern: "releases/jupyterhub-and-binder/*.md"
-    
-    # Jupyter Book organization releases
-    - title: "Jupyter Book"
-      children:
-      - pattern: "releases/jupyter-book/*.md"
-    
-    # Jupyter Widgets organization releases
-    - title: "Jupyter Widgets"
-      children:
-      - pattern: "releases/jupyter-widgets/*.md"
-    
-    # Voilà organization releases
-    - title: "Voilà"
-      children:
-      - pattern: "releases/voilà/*.md"
-    
-    # Jupyter Xeus organization releases
-    - title: "Jupyter Xeus"
-      children:
-      - pattern: "releases/jupyter-xeus/*.md"
-    
-    # IPython organization releases
-    - title: "IPython"
-      children:
-      - pattern: "releases/ipython/*.md"
+      - pattern: releases/*.md
 
 site:
   options:
