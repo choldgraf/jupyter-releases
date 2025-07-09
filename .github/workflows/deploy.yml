@@ -37,7 +37,7 @@ jobs:
         with:
           node-version: 20.x
       - name: Install MyST Markdown
-        run: npm install -g
+        run: npm install
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
