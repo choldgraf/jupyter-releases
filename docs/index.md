@@ -1,9 +1,6 @@
 ---
 title: Jupyter Releases
-date: 2024-01-01
-author: The Jupyter Team
-tags:
-  - releases
+author: Chris Holdgraf
 site:
     hide_toc: true
 ---
