@@ -214,7 +214,7 @@ def main():
         with open(filename, "w") as f:
             f.write("---\n")
             f.write(f"title: {title}\n")
-            f.write(f"date: {date}\n")
+            f.write(f'date: "{date}"\n')
             f.write("author: The Jupyter Team\n")
             f.write("tags:\n")
             f.write("  - release\n")
