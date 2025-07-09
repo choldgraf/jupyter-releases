@@ -151,8 +151,9 @@ def main():
 
     print(f"Processing {len(organizations)} organizations...")
 
-    release_counter = 1
+    all_releases = []
 
+    # First pass: collect all releases from all organizations
     for org in organizations:
         org_name = org["name"]
         org_url = org["url"]
@@ -165,69 +166,69 @@ def main():
             print(f"No repositories found for {org_name}")
             continue
         
-        org_releases = []
-        
         # Fetch releases from the last 6 months for each repository
         for repo in repos:
             repo_name = repo["name"]
             print(f"  Fetching releases from {repo_name}...")
             
             releases = fetch_releases_from_last_six_months(org_url, repo_name)
-            org_releases.extend(releases)
-        
-        # Sort releases by publication date (newest first)
-        org_releases.sort(key=lambda x: x["published_at"])
-        
-        print(f"  Found {len(org_releases)} releases from the last 6 months")
-        
-        # Generate release files for this organization
-        for release in org_releases:
-            title = release["name"] or release["tag_name"]
-            repo_name = release["repo_name"]
+            for release in releases:
+                release["org_name"] = org_name
+            all_releases.extend(releases)
+    
+    # Sort all releases by publication date (oldest first)
+    all_releases.sort(key=lambda x: x["published_at"])
+    
+    print(f"\nFound {len(all_releases)} total releases from the last 6 months")
+    
+    # Second pass: generate files in chronological order
+    for release_counter, release in enumerate(all_releases, 1):
+        title = release["name"] or release["tag_name"]
+        repo_name = release["repo_name"]
+        org_name = release["org_name"]
 
-            # Add repository name to title if it's not already present
-            normalized_repo = (
-                repo_name.lower().replace("-", "").replace("_", "").replace(" ", "")
+        # Add repository name to title if it's not already present
+        normalized_repo = (
+            repo_name.lower().replace("-", "").replace("_", "").replace(" ", "")
+        )
+        normalized_title = (
+            title.lower().replace("-", "").replace("_", "").replace(" ", "")
+        )
+
+        if normalized_repo not in normalized_title:
+            title = f"{repo_name} {title}"
+
+        date = release["published_at"][:10]
+        formatted_date = format_date(date)
+        title = f"{title} - {formatted_date}"
+        body = release["body"] or ""
+
+        # Wrap @mentions in backticks (only if preceded by space, (, comma, 
+        # or [, and not already wrapped)
+        body = re.sub(r"(?<=[\s(,\[])@(\w+)(?!`)", r"`@\1`", body)
+
+        # Create filename
+        safe_title = re.sub(r"[^a-zA-Z0-9-]", "-", title.lower())
+        org_folder_name = org_name.lower().replace(" ", "-").replace("&", "and")
+        filename = releases_dir / f"{release_counter:03d}-{org_folder_name}-{repo_name}-{safe_title}.md"
+
+        # Write the markdown file
+        with open(filename, "w") as f:
+            f.write("---\n")
+            f.write(f"title: {title}\n")
+            f.write(f"date: {date}\n")
+            f.write("author: The Jupyter Team\n")
+            f.write("tags:\n")
+            f.write("  - release\n")
+            f.write(f"  - {org_name.lower().replace(' ', '-')}\n")
+            f.write("---\n\n")
+            f.write(
+                f"{{button}}`Release Source <{release['html_url']}>`\n\n"
             )
-            normalized_title = (
-                title.lower().replace("-", "").replace("_", "").replace(" ", "")
-            )
+            f.write(body)
+            f.write("\n")
 
-            if normalized_repo not in normalized_title:
-                title = f"{repo_name} {title}"
-
-            date = release["published_at"][:10]
-            formatted_date = format_date(date)
-            title = f"{title} - {formatted_date}"
-            body = release["body"] or ""
-
-            # Wrap @mentions in backticks (only if preceded by space, (, comma, 
-            # or [, and not already wrapped)
-            body = re.sub(r"(?<=[\s(,\[])@(\w+)(?!`)", r"`@\1`", body)
-
-            # Create filename
-            safe_title = re.sub(r"[^a-zA-Z0-9-]", "-", title.lower())
-            org_folder_name = org_name.lower().replace(" ", "-").replace("&", "and")
-            filename = releases_dir / f"{release_counter:03d}-{org_folder_name}-{repo_name}-{safe_title}.md"
-
-            # Write the markdown file
-            with open(filename, "w") as f:
-                f.write("---\n")
-                f.write(f"title: {title}\n")
-                f.write(f"date: {date}\n")
-                f.write("author: The Jupyter Team\n")
-                f.write("tags:\n")
-                f.write("  - release\n")
-                f.write(f"  - {org_name.lower().replace(' ', '-')}\n")
-                f.write("---\n\n")
-                f.write(
-                    f"{{button}}`Release Source <{release['html_url']}>`\n\n"
-                )
-                f.write(body)
-                f.write("\n")
-
-            print(f"    Generated: {filename}")
-            release_counter += 1
+        print(f"Generated: {filename}")
 
     print("\nRelease posts generated successfully!")
 
