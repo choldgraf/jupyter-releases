@@ -1,8 +1,6 @@
 ---
 title: Jupyter Releases
 author: Chris Holdgraf
-site:
-    hide_toc: true
 ---
 
 # Jupyter Releases
@@ -21,6 +19,6 @@ Some Jupyter organizations don't use GitHub releases, and this will totally igno
 
 :::{listing}
 :type: table
-:max-items: 50
+:max-items: 200
 :contents: releases
 :::
