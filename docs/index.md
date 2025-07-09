@@ -19,6 +19,6 @@ Some Jupyter organizations don't use GitHub releases, and this will totally igno
 
 :::{listing}
 :type: table
-:max-items: 200
+:max-items: 500
 :contents: releases
 :::
