@@ -1,0 +1,18 @@
+organizations:
+  - name: "Jupyter"
+    url: "https://github.com/jupyter"
+  - name: "Jupyter Lab"
+    url: "https://github.com/jupyterlab"
+  - name: "JupyterHub and Binder"
+    url: "https://github.com/jupyterhub"
+  - name: "Jupyter Book"
+    url: "https://github.com/jupyter-book"
+  - name: "Jupyter Widgets"
+    url: "https://github.com/jupyter-widgets"
+  - name: "Voilà"
+    url: "https://github.com/voila-dashboards"
+  - name: "Jupyter Xeus"
+    url: "https://github.com/jupyter-xeus"
+  - name: "IPython"
+    url: "https://github.com/ipython"
+

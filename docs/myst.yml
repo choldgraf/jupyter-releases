@@ -1,0 +1,60 @@
+# See docs at: https://mystmd.org/guide/frontmatter
+version: 1
+project:
+  title: "Jupyter Releases"
+  plugins:
+    - https://github.com/jupyter-book/blog-plugin/releases/latest/download/plugin.mjs
+  keywords:
+    - Jupyter
+    - JupyterBook
+    - MyST Markdown
+  description: Releases from across the Jupyter organization.
+  github: https://github.com/choldgraf/jupyter-releases
+  license: CC0-1.0
+  toc:
+    - file: index.md
+    # Jupyter organization releases
+    - title: "Jupyter"
+      children:
+      - pattern: "releases/jupyter/*.md"
+        exclude: ["index.md"]
+    
+    # Jupyter Lab organization releases
+    - title: "Jupyter Lab"
+      children:
+      - pattern: "releases/jupyter-lab/*.md"
+    
+    # JupyterHub and Binder organization releases
+    - title: "JupyterHub and Binder"
+      children:
+      - pattern: "releases/jupyterhub-and-binder/*.md"
+    
+    # Jupyter Book organization releases
+    - title: "Jupyter Book"
+      children:
+      - pattern: "releases/jupyter-book/*.md"
+    
+    # Jupyter Widgets organization releases
+    - title: "Jupyter Widgets"
+      children:
+      - pattern: "releases/jupyter-widgets/*.md"
+    
+    # Voilà organization releases
+    - title: "Voilà"
+      children:
+      - pattern: "releases/voilà/*.md"
+    
+    # Jupyter Xeus organization releases
+    - title: "Jupyter Xeus"
+      children:
+      - pattern: "releases/jupyter-xeus/*.md"
+    
+    # IPython organization releases
+    - title: "IPython"
+      children:
+      - pattern: "releases/ipython/*.md"
+
+site:
+  options:
+    logo_text: Jupyter Releases
+    folders: true
