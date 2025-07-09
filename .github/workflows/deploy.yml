@@ -46,8 +46,10 @@ jobs:
         run: python src/generate_release_notes.py
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install NPM dependencies
-        run: npm install -g mystmd myst-parser js-yaml glob commander
+      - name: Install myst
+        run: npm install -g mystmd
+      - name: Install dependencies
+        run: cd docs &&npm install myst-parser js-yaml glob commander
       - name: Build HTML Assets
         run: cd docs &&myst build --html -d
       - name: Upload artifact
