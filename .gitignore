@@ -209,3 +209,7 @@ __marimo__/
 # MyST
 docs/releases/*
 _build
+
+# JS
+node_modules
+package-lock.json

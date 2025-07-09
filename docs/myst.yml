@@ -3,7 +3,8 @@ version: 1
 project:
   title: "Jupyter Releases"
   plugins:
-    - https://github.com/jupyter-book/blog-plugin/releases/latest/download/plugin.mjs
+    - https://github.com/ryanlovett/myst-listing-plugin/raw/refs/heads/main/listing.mjs
+    # - https://github.com/jupyter-book/blog-plugin/releases/latest/download/plugin.mjs
   keywords:
     - Jupyter
     - JupyterBook
