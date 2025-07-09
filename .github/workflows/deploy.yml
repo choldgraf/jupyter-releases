@@ -46,10 +46,8 @@ jobs:
         run: python src/generate_release_notes.py
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install NPM dependencies
-        run: cd docs &&npm install
       - name: Build HTML Assets
-        run: cd docs &&myst build --html -d
+        run: cd docs &&npm install&&myst build --html -d
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
