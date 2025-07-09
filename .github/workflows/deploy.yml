@@ -49,7 +49,7 @@ jobs:
       - name: Install myst
         run: npm install -g mystmd
       - name: Install dependencies
-        run: cd docs &&npm install myst-parser js-yaml glob commander
+        run: cd docs &&npm install
       - name: Build HTML Assets
         run: cd docs &&myst build --html -d
       - name: Upload artifact

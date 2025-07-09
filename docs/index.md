@@ -5,7 +5,6 @@ author: The Jupyter Team
 tags:
   - releases
 site:
-  options:
     hide_toc: true
 ---
 
