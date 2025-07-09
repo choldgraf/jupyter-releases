@@ -199,8 +199,6 @@ def main():
             title = f"{repo_name} {title}"
 
         date = release["published_at"][:10]
-        formatted_date = format_date(date)
-        title = f"{title} - {formatted_date}"
         body = release["body"] or ""
 
         # Wrap @mentions in backticks (only if preceded by space, (, comma, 
