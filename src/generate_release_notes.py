@@ -123,7 +123,7 @@ def create_main_releases_index(organizations, releases_dir):
             org_name = org["name"]
             folder_name = org_name.lower().replace(" ", "-").replace("&", "and")
 
-            f.write(f"::::{{note}} {org_name}\n")
+            f.write(f"::::{{seealso}} {org_name}\n")
             f.write(":class: dropdown\n")
             f.write(":::{listing}\n")
             f.write(":type: table\n")
