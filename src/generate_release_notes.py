@@ -108,7 +108,7 @@ def create_main_releases_index(organizations, releases_dir):
     with open(main_index_file, "w") as f:
         f.write("---\n")
         f.write("title: Jupyter Releases\n")
-        f.write(f"date: {today}\n")
+        f.write(f'date: "2000-01-01"\n')
         f.write("author: The Jupyter Team\n")
         f.write("tags:\n")
         f.write("  - releases\n")
