@@ -25,4 +25,4 @@ site:
     folders: true
   nav:
     - title: Releases by subproject
-      url: /releases/index
+      url: https://chrisholdgraf.com/jupyter-releases/releases
