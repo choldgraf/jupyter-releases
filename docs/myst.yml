@@ -24,3 +24,6 @@ site:
     hide_toc: true
     logo_text: Jupyter Releases
     folders: true
+  nav:
+    - title: Releases by subproject
+      url: /releases/index.md

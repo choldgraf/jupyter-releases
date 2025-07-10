@@ -12,6 +12,8 @@ import yaml
 from datetime import datetime, timedelta
 from pathlib import Path
 
+today = datetime.now().strftime("%Y-%m-%d")
+
 
 def format_date(date_str):
     """Convert ISO date string to readable format like 'June 17th, 2025'"""
@@ -98,30 +100,37 @@ def fetch_releases_from_last_six_months(org_url, repo_name):
         return []
 
 
-def create_index_md(org_folder, org_name, releases):
-    """Create index.md file for an organization"""
-    index_file = org_folder / "index.md"
+def create_main_releases_index(organizations, releases_dir):
+    """Create main index.md file with dropdowns for each organization"""
+    main_index_file = releases_dir / "index.md"
+    today = datetime.now().strftime("%Y-%m-%d")
 
-    with open(index_file, "w") as f:
+    with open(main_index_file, "w") as f:
         f.write("---\n")
-        f.write(f"title: {org_name} Releases\n")
-        f.write("date: 2024-01-01\n")
+        f.write("title: Jupyter Releases\n")
+        f.write(f"date: {today}\n")
         f.write("author: The Jupyter Team\n")
         f.write("tags:\n")
         f.write("  - releases\n")
-        f.write(f"  - {org_name.lower().replace(' ', '-')}\n")
         f.write("---\n\n")
-        f.write(f"# {org_name} Releases\n\n")
+        f.write("# Jupyter Releases\n\n")
         f.write(
-            f"This page contains all releases from the {org_name} "
-            f"organization in the last year.\n\n"
+            "This page contains all releases from Jupyter organizations "
+            "in the last 6 months.\n\n"
         )
 
-        folder_name = org_name.lower().replace(" ", "-").replace("&", "and")
-        f.write(":::{blog-posts}\n")
-        f.write(f":path: releases/{folder_name}/\n")
-        f.write(":limit: 50\n")
-        f.write(":::\n")
+        for org in organizations:
+            org_name = org["name"]
+            folder_name = org_name.lower().replace(" ", "-").replace("&", "and")
+
+            f.write(f"::::{{note}} {org_name}\n")
+            f.write(":class: dropdown\n")
+            f.write(":::{listing}\n")
+            f.write(":type: table\n")
+            f.write(":max-items: 500\n")
+            f.write(f":contents: releases/{folder_name}\n")
+            f.write(":::\n")
+            f.write("::::\n\n")
 
 
 def main():
@@ -152,14 +161,17 @@ def main():
 
     print(f"Processing {len(organizations)} organizations...")
 
-    all_releases = []
-
-    # First pass: collect all releases from all organizations
+    # Process each organization separately
     for org in organizations:
         org_name = org["name"]
         org_url = org["url"]
 
         print(f"\nProcessing {org_name}...")
+
+        # Create organization folder
+        org_folder_name = org_name.lower().replace(" ", "-").replace("&", "and")
+        org_folder = releases_dir / org_folder_name
+        org_folder.mkdir(parents=True, exist_ok=True)
 
         # Fetch repositories for this organization
         repos = fetch_repositories(org_url)
@@ -167,68 +179,67 @@ def main():
             print(f"No repositories found for {org_name}")
             continue
 
+        org_releases = []
+
         # Fetch releases from the last 6 months for each repository
         for repo in repos:
             repo_name = repo["name"]
             print(f"  Fetching releases from {repo_name}...")
 
             releases = fetch_releases_from_last_six_months(org_url, repo_name)
-            for release in releases:
-                release["org_name"] = org_name
-            all_releases.extend(releases)
+            org_releases.extend(releases)
 
-    # Sort all releases by publication date (oldest first)
-    all_releases.sort(key=lambda x: x["published_at"])
+        # Sort releases by publication date (oldest first)
+        org_releases.sort(key=lambda x: x["published_at"])
 
-    print(f"\nFound {len(all_releases)} total releases from the last 6 months")
+        print(f"  Found {len(org_releases)} releases from the last 6 months")
 
-    # Second pass: generate files in chronological order
-    for release_counter, release in enumerate(all_releases, 1):
-        title = release["name"] or release["tag_name"]
-        repo_name = release["repo_name"]
-        org_name = release["org_name"]
+        # Generate files for this organization
+        for release_counter, release in enumerate(org_releases, 1):
+            title = release["name"] or release["tag_name"]
+            repo_name = release["repo_name"]
 
-        # Add repository name to title if it's not already present
-        normalized_repo = (
-            repo_name.lower().replace("-", "").replace("_", "").replace(" ", "")
-        )
-        normalized_title = (
-            title.lower().replace("-", "").replace("_", "").replace(" ", "")
-        )
+            # Add repository name to title if it's not already present
+            normalized_repo = (
+                repo_name.lower().replace("-", "").replace("_", "").replace(" ", "")
+            )
+            normalized_title = (
+                title.lower().replace("-", "").replace("_", "").replace(" ", "")
+            )
 
-        if normalized_repo not in normalized_title:
-            title = f"{repo_name} {title}"
+            if normalized_repo not in normalized_title:
+                title = f"{repo_name} {title}"
 
-        date = release["published_at"][:10]
-        body = release["body"] or ""
+            date = release["published_at"][:10]
+            body = release["body"] or ""
 
-        # Wrap @mentions in backticks (only if preceded by space, (, comma,
-        # or [, and not already wrapped)
-        body = re.sub(r"(?<=[\s(,\[])@(\w+)(?!`)", r"`@\1`", body)
+            # Wrap @mentions in backticks (only if preceded by space, (, comma,
+            # or [, and not already wrapped)
+            body = re.sub(r"(?<=[\s(,\[])@(\w+)(?!`)", r"`@\1`", body)
 
-        # Create filename
-        safe_title = re.sub(r"[^a-zA-Z0-9-]", "-", title.lower())
-        org_folder_name = org_name.lower().replace(" ", "-").replace("&", "and")
-        filename = (
-            releases_dir
-            / f"{release_counter:03d}-{org_folder_name}-{repo_name}-{safe_title}.md"
-        )
+            # Create filename
+            safe_title = re.sub(r"[^a-zA-Z0-9-]", "-", title.lower())
+            filename = org_folder / f"{release_counter:03d}-{repo_name}-{safe_title}.md"
 
-        # Write the markdown file
-        with open(filename, "w") as f:
-            f.write("---\n")
-            f.write(f"title: {title}\n")
-            f.write(f'date: "{date}"\n')
-            f.write(f"author: {org_name}\n")
-            f.write("tags:\n")
-            f.write("  - release\n")
-            f.write(f"  - {org_name.lower().replace(' ', '-')}\n")
-            f.write("---\n\n")
-            f.write(f"{{button}}`Release Source <{release['html_url']}>`\n\n")
-            f.write(body)
-            f.write("\n")
+            # Write the markdown file
+            with open(filename, "w") as f:
+                f.write("---\n")
+                f.write(f"title: {title}\n")
+                f.write(f'date: "{date}"\n')
+                f.write(f"author: {org_name}\n")
+                f.write("tags:\n")
+                f.write("  - release\n")
+                f.write(f"  - {org_name.lower().replace(' ', '-')}\n")
+                f.write("---\n\n")
+                f.write(f"{{button}}`Release Source <{release['html_url']}>`\n\n")
+                f.write(body)
+                f.write("\n")
 
-        print(f"Generated: {filename}")
+            print(f"    Generated: {filename}")
+
+    # Create main index.md with dropdowns for all organizations
+    create_main_releases_index(organizations, releases_dir)
+    print("\nCreated main releases index.md")
 
     print("\nRelease posts generated successfully!")
 

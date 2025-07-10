@@ -17,8 +17,10 @@ Some Jupyter organizations don't use GitHub releases, and this will totally igno
 
 ## Jupyter Releases in the last 6 months
 
+See [project-specific releases here](./releases/index.md).
+
 :::{listing}
 :type: table
 :max-items: 500
-:contents: releases
+:contents: releases/**/*.md
 :::
