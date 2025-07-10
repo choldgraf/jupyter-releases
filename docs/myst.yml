@@ -15,9 +15,8 @@ project:
   toc:
     - file: index.md
     # Jupyter organization releases
-    - title: Releases
-      children:
-      - pattern: releases/*.md
+    - title: Releases by sub-project
+      file: releases/index.md
 
 site:
   options:
