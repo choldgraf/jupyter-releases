@@ -26,4 +26,4 @@ site:
     folders: true
   nav:
     - title: Releases by subproject
-      url: /releases/index.md
+      url: /releases/index
