@@ -20,6 +20,3 @@ site:
   options:
     logo_text: Jupyter Releases
     folders: true
-  nav:
-    - title: Releases by subproject
-      url: https://chrisholdgraf.com/jupyter-releases/releases
