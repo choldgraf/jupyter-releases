@@ -207,14 +207,15 @@ def write_release_file(org_name, org_url, releases, months, file_path):
         # YAML header
         f.write("---\n")
         f.write(f"title: {org_name}\n")
-        f.write(f'date: "{datetime.now().strftime("%Y-%m-%d")}"\n')
-        f.write(f"author: {org_name}\n")
         f.write("tags:\n  - release\n")
         f.write(f"  - {org_name.lower().replace(' ', '-')}\n")
         f.write("---\n\n")
 
-        # Organization link
-        f.write(f"Releases for the [{org_name}]({org_url}) organization.\n\n")
+        # Organization link with update date
+        today = datetime.now().strftime("%Y-%m-%d")
+        f.write(
+            f"Releases for the [{org_name}]({org_url}) organization, updated on {today}.\n\n"
+        )
 
         if not releases:
             f.write(f"No releases found in the last {months} months.\n")
@@ -235,7 +236,7 @@ def write_release_file(org_name, org_url, releases, months, file_path):
             body = clean_text(release["body"])
 
             f.write(f"# {title} - {formatted_date}\n\n")
-            f.write(f"[View on GitHub]({release['html_url']})\n\n")
+            f.write(f"{{button}}`Release Source <{release['html_url']}>`\n\n")
             if body:
                 f.write(body + "\n\n")
             f.write("---\n\n")
@@ -301,6 +302,9 @@ def main():
         all_releases = []
         for repo in repos:
             repo_name = repo["name"]
+            # Skip language-packs repositories
+            if repo_name == "language-packs":
+                continue
             print(f"  Fetching releases from {repo_name}...")
             releases = fetch_releases(org_short, repo_name, args.months)
             all_releases.extend(releases)
