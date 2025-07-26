@@ -151,8 +151,8 @@ def main():
         "--months",
         "-m",
         type=int,
-        default=6,
-        help="Number of months to look back for releases (default: 6)",
+        default=12,
+        help="Number of months to look back for releases (default: 12)",
     )
     parser.add_argument(
         "--n-repositories",
