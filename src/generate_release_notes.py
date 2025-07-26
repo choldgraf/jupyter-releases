@@ -35,6 +35,8 @@ BOT_USERNAMES = [
     "jupyterlab-probot",
     "meeseeksmachine",
     "lumberbot-app",
+    "github-actions[bot]",
+    "github-actions",
 ]
 
 CONTRIBUTOR_PATTERNS = [
@@ -56,6 +58,7 @@ BOT_PATTERNS = [
     "ci:",
     "build:",
     "maintenance:",
+    "🚀 release",
 ]
 
 
