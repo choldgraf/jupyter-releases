@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""
-Script to generate release notes from GitHub releases in Jupyter organizations.
-"""
+"""Generate release notes from GitHub releases in Jupyter organizations."""
 
 import json
+import re
 import subprocess
 import sys
 import shutil
@@ -12,259 +11,304 @@ import argparse
 from datetime import datetime, timedelta
 from pathlib import Path
 
-today = datetime.now().strftime("%Y-%m-%d")
+# Configuration
+BOT_USERNAMES = [
+    "dependabot",
+    "dependabot[bot]",
+    "dependabot-preview[bot]",
+    "changeset-bot",
+    "changeset-bot[bot]",
+    "github-actions[bot]",
+    "github-actions",
+    "renovate",
+    "renovate[bot]",
+    "greenkeeper[bot]",
+    "greenkeeper",
+    "snyk-bot",
+    "snyk-bot[bot]",
+    "mergify[bot]",
+    "mergify",
+    "bors",
+    "bors[bot]",
+    "homu",
+    "homu[bot]",
+    "jupyterlab-probot",
+    "meeseeksmachine",
+    "lumberbot-app",
+]
+
+CONTRIBUTOR_PATTERNS = [
+    r"\*\*Contributors to this release\*\*.*$",
+    r"Contributors to this release.*$",
+    r"\*\*Contributors\*\*.*$",
+    r"Contributors:.*$",
+    r"New Contributors.*$",
+    r"\*\*New Contributors\*\*.*$",
+]
+
+BOT_PATTERNS = [
+    "bump ",
+    "dependency update",
+    "update dependencies",
+    "automated dependency",
+    "automated update",
+    "chore:",
+    "ci:",
+    "build:",
+    "maintenance:",
+]
 
 
 def format_date(date_str):
-    """Convert ISO date string to readable format like 'June 17th, 2025'"""
+    """Convert ISO date to readable format."""
     date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-    month = date_obj.strftime("%B")
     day = date_obj.day
-    if 4 <= day <= 20 or 24 <= day <= 30:
-        suffix = "th"
-    else:
-        suffix = ["st", "nd", "rd"][day % 10 - 1]
-    year = date_obj.year
-    return f"{month} {day}{suffix}, {year}"
+    suffix = (
+        "th" if 4 <= day <= 20 or 24 <= day <= 30 else ["st", "nd", "rd"][day % 10 - 1]
+    )
+    return f"{date_obj.strftime('%B')} {day}{suffix}, {date_obj.year}"
 
 
-def load_organizations(yaml_file):
-    """Load organizations from YAML file"""
-    with open(yaml_file, "r") as f:
-        data = yaml.safe_load(f)
-    return data.get("organizations", [])
-
-
-def get_org_name_from_url(url):
-    """Extract organization name from GitHub URL"""
-    return url.split("/")[-1]
-
-
-def fetch_repositories(org_url):
-    """Fetch all repositories for an organization"""
-    org_name = get_org_name_from_url(org_url)
-    print(f"Fetching all repositories from {org_name} organization...")
-
+def gh_api(endpoint):
+    """Run GitHub CLI API command and return JSON result."""
     try:
         result = subprocess.run(
-            ["gh", "api", f"orgs/{org_name}/repos", "--paginate"],
+            ["gh", "api", endpoint, "--paginate"],
             capture_output=True,
             text=True,
             check=True,
         )
-        repos = json.loads(result.stdout)
-        return repos
-    except subprocess.CalledProcessError as e:
-        print(f"Error fetching repositories for {org_name}: {e}")
+        return json.loads(result.stdout)
+    except (subprocess.CalledProcessError, json.JSONDecodeError):
         return []
 
 
-def fetch_releases_from_last_n_months(org_url, repo_name, months=6):
-    """Fetch releases from the last n months for a specific repository"""
-    org_name = get_org_name_from_url(org_url)
+def fetch_releases(org_name, repo_name, months):
+    """Fetch recent releases for a repository."""
     n_months_ago = datetime.now() - timedelta(days=months * 30)
+    releases = gh_api(f"repos/{org_name}/{repo_name}/releases")
 
-    try:
-        result = subprocess.run(
-            ["gh", "api", f"repos/{org_name}/{repo_name}/releases", "--paginate"],
-            capture_output=True,
-            text=True,
-            check=True,
+    recent_releases = []
+    for release in releases:
+        if not release.get("prerelease", False) and release.get("published_at"):
+            release_date = datetime.strptime(release["published_at"][:10], "%Y-%m-%d")
+            if release_date >= n_months_ago:
+                release["repo_name"] = repo_name
+                recent_releases.append(release)
+
+    return recent_releases
+
+
+def clean_text(text):
+    """Clean and format release text."""
+    if not text:
+        return ""
+
+    # Remove unwanted patterns
+    for pattern in CONTRIBUTOR_PATTERNS:
+        text = re.sub(pattern, "", text, flags=re.DOTALL | re.IGNORECASE)
+
+    # Filter out bot-related lines
+    lines = []
+    for line in text.splitlines():
+        line_lower = line.lower()
+
+        # Skip separator lines and changelog links
+        if (
+            line.strip() == "---"
+            or line.strip() == "****"
+            or "full changelog" in line_lower
+        ):
+            continue
+
+        # Skip contributor-related lines
+        if any(
+            phrase in line_lower
+            for phrase in [
+                "made their first contribution",
+                "contributors page",
+                "graphs/contributors",
+            ]
+        ):
+            continue
+
+        # Skip lines that are primarily about bot activity (not just mentions)
+        if any(pattern in line_lower for pattern in BOT_PATTERNS):
+            continue
+
+        # Skip PRs authored by bots (bot is the primary author)
+        # Look for patterns like "by @botname" or "botname in" at the beginning of the line
+        if any(
+            line_lower.startswith(f"by @{bot}")
+            or line_lower.startswith(f"{bot} in")
+            or line_lower.startswith(f"by {bot}")
+            or f" by [`@{bot}`]" in line_lower
+            for bot in BOT_USERNAMES
+        ):
+            continue
+
+        # Convert headers to bold
+        if line.startswith("#"):
+            content = line.lstrip("#").strip()
+            line = f"**{content}**"
+
+        # Convert usernames to links with backticks
+        line = re.sub(
+            r"(?<!\[)(?<!`)@([\w\-\[\]]+)(?!\])",
+            r"[`@\1`](https://github.com/\1)",
+            line,
         )
-        releases = json.loads(result.stdout)
 
-        # Filter releases from the last n months and exclude pre-releases
-        recent_releases = []
-        for release in releases:
-            if release.get("published_at"):
-                release_date = datetime.strptime(
-                    release["published_at"][:10], "%Y-%m-%d"
-                )
-                # Skip if it's a pre-release (alpha, beta, etc.)
-                if release.get("prerelease", False):
-                    continue
-                if release_date >= n_months_ago:
-                    release["repo_name"] = repo_name
-                    recent_releases.append(release)
+        lines.append(line)
 
-        return recent_releases
-    except subprocess.CalledProcessError:
-        print(f"No releases found for {org_name}/{repo_name}")
-        return []
-    except json.JSONDecodeError:
-        print(f"Error parsing releases for {org_name}/{repo_name}")
-        return []
+    text = "\n".join(lines).strip()
+    return remove_empty_sections(text)
 
 
-def clean_release_body(body):
-    """Remove only the '**Full Changelog**' line from the release body."""
-    lines = body.splitlines()
-    cleaned_lines = [line for line in lines if "full changelog" not in line.lower()]
-    return "\n".join(cleaned_lines).strip()
-
-
-def convert_headers_to_bold(text):
-    """Convert all markdown headers to bold text."""
+def remove_empty_sections(text):
+    """Remove empty sections (headers with no content)."""
     lines = text.splitlines()
     result = []
-    for line in lines:
-        if line.startswith("#"):
-            # Count the number of # at the start
-            header_level = len(line) - len(line.lstrip("#"))
-            # Remove the # and strip whitespace
-            content = line[header_level:].strip()
-            # Convert to bold
-            result.append(f"**{content}**")
-        else:
-            result.append(line)
+    i = 0
+
+    while i < len(lines):
+        line = lines[i]
+
+        # If this is a bold header (starts with ** and ends with **)
+        if line.strip().startswith("**") and line.strip().endswith("**"):
+            # Look ahead to see if the next non-empty line is another header
+            j = i + 1
+            while j < len(lines) and lines[j].strip() == "":
+                j += 1
+
+            # If we found another header or reached the end, skip this empty section
+            if j >= len(lines) or (
+                lines[j].strip().startswith("**") and lines[j].strip().endswith("**")
+            ):
+                i = j
+                continue
+
+        result.append(line)
+        i += 1
+
     return "\n".join(result)
 
 
-def convert_github_usernames_to_links(text):
-    """Convert GitHub usernames (starting with @) to markdown links."""
-    import re
+def write_release_file(org_name, org_url, releases, months, file_path):
+    """Write release notes to markdown file."""
+    with open(file_path, "w") as f:
+        # YAML header
+        f.write("---\n")
+        f.write(f"title: {org_name}\n")
+        f.write(f'date: "{datetime.now().strftime("%Y-%m-%d")}"\n')
+        f.write(f"author: {org_name}\n")
+        f.write("tags:\n  - release\n")
+        f.write(f"  - {org_name.lower().replace(' ', '-')}\n")
+        f.write("---\n\n")
 
-    # Only convert @usernames that are not already in markdown links or backticks
-    # Use negative lookbehind and lookahead to avoid double-processing
-    pattern = r"(?<!\[)(?<!`)@([\w\-\[\]]+)(?!\])"
-    replacement = r"[@\1](https://github.com/\1)"
-    return re.sub(pattern, replacement, text)
+        # Organization link
+        f.write(f"Releases for the [{org_name}]({org_url}) organization.\n\n")
 
+        if not releases:
+            f.write(f"No releases found in the last {months} months.\n")
+            return
 
-def add_backticks_to_usernames_in_links(text):
-    """Add single backticks around usernames in markdown links that don't have them."""
-    import re
+        # Write each release
+        for release in releases:
+            title = release["name"] or release["tag_name"]
+            repo_name = release["repo_name"]
 
-    # Find markdown links that contain usernames and don't already have backticks
-    # Pattern: [@username](https://github.com/username) where username is not already in backticks
-    pattern = r"(\[)@([\w\-\[\]]+)(\]\(https://github.com/\2\))(?!`)"
-    replacement = r"\1`@\2`\3"
-    return re.sub(pattern, replacement, text)
+            # Add repo name to title if not already present
+            if repo_name.lower().replace("-", "").replace("_", "").replace(
+                " ", ""
+            ) not in title.lower().replace("-", "").replace("_", "").replace(" ", ""):
+                title = f"{repo_name} {title}"
+
+            formatted_date = format_date(release["published_at"][:10])
+            body = clean_text(release["body"])
+
+            f.write(f"# {title} - {formatted_date}\n\n")
+            f.write(f"[View on GitHub]({release['html_url']})\n\n")
+            if body:
+                f.write(body + "\n\n")
+            f.write("---\n\n")
 
 
 def main():
-    # Parse command line arguments
     parser = argparse.ArgumentParser(
         description="Generate release notes from GitHub releases"
     )
     parser.add_argument(
-        "--months",
-        "-m",
-        type=int,
-        default=12,
-        help="Number of months to look back for releases (default: 12)",
+        "--months", "-m", type=int, default=12, help="Months to look back (default: 12)"
     )
     parser.add_argument(
-        "--n-repositories",
-        "-n",
-        type=int,
-        default=None,
-        help="Limit number of repositories per organization (default: all)",
+        "--n-repositories", "-n", type=int, help="Limit repositories per org"
     )
     args = parser.parse_args()
 
-    # Check if gh command exists
+    # Check GitHub CLI
     try:
         subprocess.run(["gh", "--version"], capture_output=True, check=True)
     except (subprocess.CalledProcessError, FileNotFoundError):
-        print("Error: GitHub CLI (gh) is not installed or not available in PATH")
-        print("Please install it from: https://cli.github.com/")
+        print("Error: GitHub CLI (gh) not found. Install from: https://cli.github.com/")
         sys.exit(1)
 
-    # Configuration
-    yaml_file = Path("src/jupyter_orgs.yml")
-    releases_dir = Path("docs/releases")
+    # Load organizations
+    try:
+        with open("src/jupyter_orgs.yml", "r") as f:
+            organizations = yaml.safe_load(f).get("organizations", [])
+    except FileNotFoundError:
+        print("Error: src/jupyter_orgs.yml not found")
+        sys.exit(1)
 
-    # Load organizations from YAML
-    organizations = load_organizations(yaml_file)
     if not organizations:
-        print("Error: No organizations found in YAML file")
+        print("Error: No organizations found")
         sys.exit(1)
 
-    # Clean and ensure directories exist
+    # Setup output directory
+    releases_dir = Path("docs/releases")
     if releases_dir.exists():
         shutil.rmtree(releases_dir)
     releases_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Processing {len(organizations)} organizations...")
 
-    # Process each organization separately
+    # Process each organization
     for org in organizations:
         org_name = org["name"]
         org_url = org["url"]
+        org_short = org_url.split("/")[-1]
 
         print(f"\nProcessing {org_name}...")
 
-        # Create organization file name
-        org_file_name = org_name.lower().replace(" ", "-").replace("&", "and") + ".md"
-        org_file_path = releases_dir / org_file_name
-
-        # Fetch repositories for this organization
-        repos = fetch_repositories(org_url)
+        # Fetch repositories
+        repos = gh_api(f"orgs/{org_short}/repos")
         if not repos:
             print(f"No repositories found for {org_name}")
             continue
 
-        # Limit number of repositories if --n-repositories is set
         if args.n_repositories:
             repos = repos[: args.n_repositories]
 
-        org_releases = []
-        # Fetch releases from the last n months for each repository
+        # Fetch releases
+        all_releases = []
         for repo in repos:
             repo_name = repo["name"]
             print(f"  Fetching releases from {repo_name}...")
-            releases = fetch_releases_from_last_n_months(
-                org_url, repo_name, args.months
-            )
-            for release in releases:
-                release["repo_name"] = repo_name
-                org_releases.append(release)
-        # Sort releases by publication date (newest first)
-        org_releases.sort(key=lambda x: x["published_at"], reverse=True)
+            releases = fetch_releases(org_short, repo_name, args.months)
+            all_releases.extend(releases)
+
+        # Sort by date (newest first)
+        all_releases.sort(key=lambda x: x["published_at"], reverse=True)
 
         print(
-            f"  Found {len(org_releases)} releases from the last {args.months} months"
+            f"  Found {len(all_releases)} releases from the last {args.months} months"
         )
 
-        # Write a single Markdown file for the organization
-        with open(org_file_path, "w") as f:
-            f.write("---\n")
-            f.write(f"title: {org_name}\n")
-            f.write(f'date: "{today}"\n')
-            f.write(f"author: {org_name}\n")
-            f.write("tags:\n")
-            f.write("  - release\n")
-            f.write(f"  - {org_name.lower().replace(' ', '-')}\n")
-            f.write("---\n\n")
-            f.write(f"# {org_name}\n\n")
-            f.write(f"Releases for the [{org_name}]({org_url}) organization.\n\n")
-            if not org_releases:
-                f.write(f"No releases found in the last {args.months} months.\n")
-            for release in org_releases:
-                title = release["name"] or release["tag_name"]
-                repo_name = release["repo_name"]
-                normalized_repo = (
-                    repo_name.lower().replace("-", "").replace("_", "").replace(" ", "")
-                )
-                normalized_title = (
-                    title.lower().replace("-", "").replace("_", "").replace(" ", "")
-                )
-                if normalized_repo not in normalized_title:
-                    title = f"{repo_name} {title}"
-                date = release["published_at"][:10]
-                formatted_date = format_date(date)
-                body = release["body"] or ""
-                body = clean_release_body(body)
-                body = convert_github_usernames_to_links(body)
-                body = convert_headers_to_bold(body)
-                body = add_backticks_to_usernames_in_links(body)
-                # Section for each release (top-level header)
-                f.write(f"# {title} - {formatted_date}\n\n")
-                f.write(f"[View on GitHub]({release['html_url']})\n\n")
-                if body:
-                    f.write(body + "\n\n")
-                f.write("---\n\n")
+        # Write file
+        filename = org_name.lower().replace(" ", "-").replace("&", "and") + ".md"
+        file_path = releases_dir / filename
+        write_release_file(org_name, org_url, all_releases, args.months, file_path)
 
     print("\nRelease posts generated successfully!")
 
