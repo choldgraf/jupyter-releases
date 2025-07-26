@@ -153,6 +153,13 @@ def clean_text(text):
             line = f"**{content}**"
 
         # Convert usernames to links with backticks
+        # Handle usernames that are already in markdown links but missing backticks
+        line = re.sub(
+            r"(\[@)([\w\-\[\]]+)(\]\(https://github.com/\2\))",
+            r"[`@\2`](https://github.com/\2)",
+            line,
+        )
+        # Handle standalone usernames
         line = re.sub(
             r"(?<!\[)(?<!`)@([\w\-\[\]]+)(?!\])",
             r"[`@\1`](https://github.com/\1)",

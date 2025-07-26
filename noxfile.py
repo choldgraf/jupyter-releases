@@ -20,35 +20,20 @@ def docs(session):
 
 
 @nox.session
-@nox.parametrize("months", [1, 3, 6, 12])
-def update_releases(session, months):
-    """Re-download release notes with specified number of months."""
+def releases(session):
+    """Generate release notes with default settings (5 months, 2 repos)."""
     session.install("PyYAML>=6.0")
 
-    # Build the command
-    cmd = [sys.executable, "src/generate_release_notes.py", "--months", str(months)]
-
-    session.run(*cmd)
-
-    session.log(f"Updated release notes for the last {months} months")
-
-
-@nox.session
-@nox.parametrize("n_repos", [3, 5, 10])
-def update_releases_limited(session, n_repos):
-    """Re-download release notes with limited repositories per organization."""
-    session.install("PyYAML>=6.0")
-
-    # Build the command
+    # Build the command with default settings
     cmd = [
         sys.executable,
         "src/generate_release_notes.py",
         "--months",
-        "6",
+        "5",
         "--n-repositories",
-        str(n_repos),
+        "2",
     ]
 
     session.run(*cmd)
 
-    session.log(f"Updated release notes with {n_repos} repositories per organization")
+    session.log("Generated release notes with default settings (5 months, 2 repos)")
