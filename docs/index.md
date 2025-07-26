@@ -15,12 +15,5 @@ This uses the [excellent `Listings` plugin for MyST from Ryan Lovett](https://gi
 Some Jupyter organizations don't use GitHub releases, and this will totally ignore those projects! An example is [jupyterhub](https://github.com/jupyterhub/jupyterhub).
 ::::
 
-## Jupyter Releases in the last 6 months
-
-See [project-specific releases here](./releases/index.md).
-
-:::{listing}
-:type: table
-:max-items: 500
-:contents: releases/**/*.md
-:::
+```{tableofcontents}
+```
