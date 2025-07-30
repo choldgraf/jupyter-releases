@@ -189,6 +189,11 @@ def clean_text(text):
         lines.append(line)
 
     text = "\n".join(lines).strip()
+    
+    # Remove trailing commas in parentheses
+    text = re.sub(r'\(\s*,+\s*\)', '()', text)  # Remove commas in empty parentheses
+    text = re.sub(r'([^,]),\s*\)', r'\1)', text)  # Remove trailing comma before closing parenthesis
+    
     return remove_empty_sections(text)
 
 
