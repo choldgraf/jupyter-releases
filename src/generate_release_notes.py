@@ -155,7 +155,24 @@ def clean_text(text):
             content = line.lstrip("#").strip()
             line = f"**{content}**"
 
-        # Convert usernames to links with backticks
+        # Remove bot username mentions
+        for bot in BOT_USERNAMES:
+            # Remove @botname mentions
+            line = re.sub(rf'@\b{re.escape(bot)}\b', '', line)
+            # Remove [`@botname`](https://github.com/botname) links
+            line = re.sub(
+                rf'\[`@{re.escape(bot)}`\]'
+                rf'\(https://github\.com/{re.escape(bot)}\)',
+                '', line
+            )
+            # Remove [@botname](https://github.com/botname) links
+            line = re.sub(
+                rf'\[@{re.escape(bot)}\]'
+                rf'\(https://github\.com/{re.escape(bot)}\)',
+                '', line
+            )
+
+        # Convert remaining usernames to links with backticks
         # Handle usernames that are already in markdown links but missing backticks
         line = re.sub(
             r"(\[@)([\w\-\[\]]+)(\]\(https://github.com/\2\))",
