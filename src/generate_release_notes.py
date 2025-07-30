@@ -238,10 +238,15 @@ def write_release_file(org_name, org_url, releases, months, file_path):
             formatted_date = format_date(release["published_at"][:10])
             body = clean_text(release["body"])
 
-            f.write(f"# {title} - {formatted_date}\n\n")
-            f.write(f"{{button}}`Release Source <{release['html_url']}>`\n\n")
+            # Write release version as header
+            f.write(f"## {title}\n\n")
+            
+            # Write release link and date as regular text
+            f.write(f"[GitHub Release]({release['html_url']}) • {formatted_date}\n\n")
+
+            # Write release body if it exists
             if body:
-                f.write(body + "\n\n")
+                f.write(f"\n{body}\n\n")
             f.write("---\n\n")
 
 
